@@ -5,3 +5,5 @@ The code file contains the the curcuit simulator program code. The test file con
 You have to have both files downloaded on your computer for the calls to the test file to work.
 
 Also, you can find more information and the pdf write-up/instrunctions on the CMU 15-110 course website.
+
+When you download the files you have to keep the names for the imports to work properly.
