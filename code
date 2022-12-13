@@ -1,0 +1,552 @@
+"""
+15-110 Hw6 - Circuit Simulator Project
+Name:
+AndrewID:
+"""
+
+import hw6_circuit_tests as test
+
+project = "Circuit"
+
+#### CHECK-IN 1 ####
+
+'''
+findMatchingParen(expr, index)
+#1 [Check6-1]
+Parameters: str ; int
+Returns: int
+'''
+def findMatchingParen(expr, index):
+    #change vars later
+    countOpenpara = 0
+    countClosedpara = 0
+     
+    for i in range(index, len(expr)):
+        if expr[i] == "(":
+            countOpenpara += 1
+        elif expr[i] == ")":
+            countClosedpara += 1
+        if countOpenpara == countClosedpara:
+            return i
+
+'''
+getTokenBounds(expr, start)
+#2 [Check6-1]
+Parameters: str ; int
+Returns: list of ints
+'''
+def getTokenBounds(expr, start):
+    count = start
+    while count < len(expr):
+        if expr[count] != " ":
+            d = count
+            while d < len(expr):
+                if expr[d] == " ":
+                    return [count, d-1]
+                elif d == len(expr) -1:
+                    return [count, d]
+                else:
+                    d = d+1
+        else:
+            count = count +1
+'''
+expr = "(X AND (NOT (Y OR X))) OR Y"
+assert(getTokenBounds(expr, 1) == [1, 1])
+assert(getTokenBounds(expr, 2) == [3, 5])
+assert(getTokenBounds(expr, 8) == [8, 10])
+assert(getTokenBounds(expr, 13) == [13, 13])
+assert(getTokenBounds(expr, 14) == [15, 16])
+assert(getTokenBounds(expr, 22) == [23, 24])
+assert(getTokenBounds(expr, 26) == [26, 26])
+# assert(getTokenBounds("(X AND)", 1)==[1,1])
+'''
+
+'''
+parseExpr(expr)
+#3 [Check6-1]
+Parameters: str
+Returns: tree of strs
+'''
+def parseExpr(expr):
+    expr = expr.strip()
+    if expr[0] == "(" and findMatchingParen(expr, 0) == (len(expr)-1):
+            expr = expr[1:len(expr)-1]
+            return parseExpr(expr)
+            
+            
+    elif not(" " in expr):
+        children = []
+        contents = expr
+        d = {"contents" : contents, "children" : children}
+        return d
+    elif expr[:3] == "NOT":
+        children = [parseExpr(expr[3:])]
+        contents = "NOT"
+        d = {"contents" : contents, "children" : children}
+        return d
+    else:
+        if expr[0] == "(":
+            EndLeftSide = findMatchingParen(expr, 0)
+            leftSide = [0,EndLeftSide]
+        else:
+            leftSide = getTokenBounds(expr, 0)
+        #do I have to account for space by adding to the index in get token or does strip() at top function deal w this problem
+        operatorBounds = getTokenBounds(expr, leftSide[1] +1 )
+        rightSide = expr[operatorBounds[1]+1:]
+        
+        
+        contents = expr[operatorBounds[0]: operatorBounds[1] +1]
+        children = [parseExpr(expr[leftSide[0]:leftSide[1]+1]), parseExpr(rightSide)]
+        
+        d = {"contents" : contents, "children" : children}
+        return d            
+ 
+
+'''
+validateTree(t)
+#4 [Check6-1]
+Parameters: tree of strs
+Returns: bool
+'''
+
+
+def validateTree(t):
+    
+    if not("contents" in t) or not("children" in t):
+            return False
+    
+    #if not("contents" in t.keys()) or not("children" in t.keys()):
+        #return False
+    else:
+        if (((t["contents"] == "AND") or (t["contents"] == "OR")) or (t["contents"] == "XOR")) and (len(t["children"]) != 2):
+            return False
+        elif (t["contents"] == "NOT") and (len(t["children"]) != 1):
+            return False
+        elif t["children"] == []:
+            return True
+        else:
+            for i in range(len(t['children'])):
+                return validateTree(t["children"][i])
+        
+        #IDK if I'm using t['powered'] right
+            
+'''
+runWeek1()
+#5 [Check6-1]
+Parameters: no parameters
+Returns: None
+'''
+def runWeek1():
+    expr = input("input a boolean expresssion: ")
+    try:
+        t = parseExpr(expr)
+        if validateTree(t):
+            print(t)
+        else:
+            print("Your tree is invalid")
+    except:
+        print("parsing error")
+    
+
+#### CHECK-IN 2 ####
+
+'''
+getLeaves(t)
+#1 [Check6-2]
+Parameters: tree of strs
+Returns: list of strs
+'''
+def getLeaves(t):
+    
+    if t["children"] == []:
+            return [t["contents"]]
+    else:
+        lst = []
+        for i in range(len(t["children"])):
+            leafs = getLeaves(t["children"][i])
+            for j in range(len(leafs)):
+                if not(leafs[j] in lst):
+                    lst.append(leafs[j])
+        
+        lst.sort()
+        return lst
+    
+
+
+'''
+generateAllInputs(n)
+#2 [Check6-2]
+Parameters: int
+Returns: 2D list of bools
+'''
+def generateAllInputs(n):
+    if n == 0:
+        return [[]]
+    else:
+        previousInputs = generateAllInputs(n-1)
+        result1 = []
+        result2 = []
+        for priorInput in previousInputs:
+            result1.append(priorInput + [False])
+        for priorInput in previousInputs:
+            result2.append(priorInput + [True])
+        return result1 + result2
+        
+
+
+'''
+evalTree(t, inputs)
+#3 [Check6-2] & #4 [Hw6]
+Parameters: tree of strs ; dict mapping strs to bools
+Returns: bool
+'''
+#fix short-curcuit evualtion by spliting fucntion calls into two vars then combining them for final result.
+
+def evalTree(t, inputs):
+    if t["children"] == []:
+        t['powered'] = inputs[t["contents"]]
+        return inputs[t["contents"]]
+    else:
+        if t["contents"] == "AND":
+            x = evalTree(t["children"][0], inputs)
+            y = evalTree(t["children"][1], inputs)
+            t['powered'] = (x and y)
+            return (x and y)
+        elif t["contents"] == "OR":
+            x = evalTree(t["children"][0], inputs)
+            y = evalTree(t["children"][1], inputs)
+            t['powered'] = (x or y)
+            return (x or y)
+        elif t["contents"] == "XOR":
+            x = evalTree(t["children"][0], inputs)
+            y = evalTree(t["children"][1], inputs)
+            t['powered'] = (x ^ y)
+            return (x ^ y)
+        else:
+            x = evalTree(t["children"][0], inputs)
+            t['powered'] = not(x)
+            return not(x)
+        
+        
+'''
+makeTruthTable(tree)
+#4 [Check6-2]
+Parameters: tree of strs
+Returns: None
+'''
+def makeTruthTable(tree):
+    inputs = getLeaves(tree)
+    combinationList = generateAllInputs(len(inputs))
+    firstLinePrintList = inputs + ["Result"]
+    print(firstLinePrintList)
+    for i in range(len(combinationList)):
+        d = {}
+        linePrintList = []
+        for j in range(len(combinationList[i])):
+            d[inputs[j]] = combinationList[i][j]
+            linePrintList.append(d[inputs[j]])
+        linePrintList.append(evalTree(tree, d))
+        print(linePrintList)
+          
+
+'''
+runWeek2()
+#5 [Check6-2]
+Parameters: no parameters
+Returns: None
+'''
+def runWeek2():
+    expr = input("input a boolean expresssion: ")
+    try:
+        t = parseExpr(expr)
+        if validateTree(t):
+            makeTruthTable(t)
+        else:
+            print("Your tree is invalid")
+    except:
+        print("parsing error")
+
+
+### WEEK 3 ###
+
+'''
+makeModel(data)
+#2 [Hw6]
+Parameters: dict mapping strs to values
+Returns: None
+'''
+def makeModel(data):
+    data['expression'] = ""
+    data['tree'] = None
+    data['inputs'] = []
+    
+
+'''
+makeView(data, canvas)
+#2 [Hw6] & #3 [Hw6]
+Parameters: dict mapping strs to values ; Tkinter canvas
+Returns: None
+'''
+def makeView(data, canvas):
+    canvas.create_text(0,650,anchor=SW,text = "Expression: " + data['expression'])
+    if data['tree'] != None:
+        drawCircuit(data, canvas)
+
+
+'''
+keyPressed(data, event)
+#2 [Hw6]
+Parameters: dict mapping strs to values ; key event object
+Returns: None
+'''
+def keyPressed(data, event):
+    if event.keysym == "BackSpace":
+        data['expression'] = data['expression'][:len(data['expression'])-1]
+    elif event.keysym == "Return":
+        data['tree'] = parseExpr(data["expression"])
+        runInitialCircuit(data)
+    elif event.keysym == "Tab":
+        makeTruthTable(data["tree"])
+    else:
+       data["expression"] = data["expression"] + event.char
+
+
+'''
+mousePressed(data, event)
+#4 [Hw6]
+Parameters: dict mapping strs to values ; mouse event object
+Returns: None
+'''
+def mousePressed(data, event):
+    print(data["inputLocations"])
+    for currentInput in data["inputLocations"]:
+        if event.x >= data["inputLocations"][currentInput]["left"] and event.x <= data["inputLocations"][currentInput]["right"]:
+            if event.y >= data["inputLocations"][currentInput]["top"] and event.y <= data["inputLocations"][currentInput]["bottom"]:
+                print("ham")
+                data["inputs"][currentInput] = not(data["inputs"][currentInput])
+                print(data["inputs"][currentInput])
+                
+    data["output"] = evalTree(data["tree"], data["inputs"])
+        
+
+
+
+'''
+runInitialCircuit(data)
+#2 [Hw6] & #4 [Hw6]
+Parameters: dict mapping strs to values
+Returns: None
+'''
+def runInitialCircuit(data):
+    inputList = getLeaves(data["tree"])
+    d = {}
+    for i in range(len(inputList)):
+        d[inputList[i]] = False
+    data['inputs'] = d
+    data["output"] = evalTree(data['tree'], data['inputs'])
+    
+    
+
+'''
+drawNode(canvas, value, x, y, size, lit)
+#3 [Hw6]
+Parameters: Tkinter canvas ; str ; int ; int ; int ; bool
+Returns: None
+'''
+def drawNode(canvas, value, x, y, size, lit):
+    if lit:
+        color = "yellow"
+    else:
+        color = None
+    canvas.create_rectangle(x-0.5 * size, y- 0.5*size, x + 0.5*size, y+0.5*size, fill = color)
+    canvas.create_text(x,y, anchor = CENTER, text = value)
+
+
+'''
+drawWire(canvas, x1, y1, x2, y2, lit)
+#3 [Hw6]
+Parameters: Tkinter canvas ; int ; int ; int ; int ; bool
+Returns: None
+'''
+def drawWire(canvas, x1, y1, x2, y2, lit):
+    if lit:
+        color = "yellow"
+    else:
+        color = "black"
+    canvas.create_line(x1, y1, x2, y2, fill = color)
+
+#### WEEK 3 PROVIDED CODE ####
+
+''' getTreeDepth() finds the depth of the tree, the max length from root to leaf '''
+def getTreeDepth(t):
+    if len(t["children"]) == 0:
+        return 0
+    max = 0
+    for child in t["children"]:
+        tmp = getTreeDepth(child)
+        if tmp > max:
+            max = tmp
+    return max + 1
+
+''' getTreeWidth() finds the width of the tree, the max number of nodes on the same level '''
+def getTreeWidth(t):
+    if len(t["children"]) == 0:
+        return 0
+    elif len(t["children"]) == 1:
+        return max(1, getTreeWidth(t["children"][0]))
+    else:
+        biggestChildSize = max(getTreeWidth(t["children"][0]),
+                               getTreeWidth(t["children"][1]))
+        return max(1, 2 * biggestChildSize)
+
+''' This function draws all the inputs of the circuit. They should all go on
+    the left side of the screen. '''
+def drawInputs(data, canvas, size):
+    ''' We'll track the locations of inputs for button-pressing later on '''
+    if "inputLocations" not in data:
+        data["inputLocations"] = { }
+    keys = list(data["inputs"].keys())
+    keys.sort()
+
+    # make the inputs centered on the Y axis
+    margin = (600 - (len(keys) * size)) / 2
+    centerX = size/2
+    for i in range(len(keys)):
+        var = keys[i]
+        if var not in data["inputLocations"]:
+            data["inputLocations"][var] = { }
+        inp = data["inputLocations"][var]
+        centerY = size * i + size/2 + margin
+        # Store the location so we can use it to click buttons later on
+        inp["left"] = centerX - size/2
+        inp["top"] = centerY - size/2
+        inp["right"] = centerX + size/2
+        inp["bottom"] = centerY + size/2
+        drawNode(canvas, var, centerX, centerY, size/2, data["inputs"][var])
+
+''' This function draws a circuit tree within the specified bounding box.
+    It returns the location where the node was drawn, to make drawing wires easier. '''
+def drawTree(data, canvas, t, size, left, top, right, bottom):
+    if "powered" not in t:
+        t["powered"] = False
+    centerX = (left + right) / 2
+    centerY = (top + bottom) / 2
+    # Don't draw the leaves- they're all on the left side of the screen!
+    if len(t["children"]) == 0:
+        var = t["contents"]
+        d = data["inputLocations"][var]
+        # Instead, return the location of the leaf, to make drawing wires easier.
+        return [ (d["left"] + d["right"]) / 2 + size/4,
+                 (d["top"] + d["bottom"]) / 2, data["inputs"][var] ]
+    elif len(t["children"]) == 1:
+        drawNode(canvas, t["contents"], centerX, centerY, size/2, t["powered"])
+        # Position the child at the same Y position, but to the left
+        [childX, childY, childOn] = drawTree(data, canvas, t["children"][0], size,
+                left - size, top, right - size, bottom)
+        drawWire(canvas, childX, childY, centerX - size/4, centerY, childOn)
+        return [ centerX + size/4, centerY, t["powered"] ]
+    else:
+        drawNode(canvas, t["contents"], centerX, centerY, size/2, t["powered"])
+        # Split the Y dimension in half, and give each to one child.
+        # Left child
+        [childX, childY, childOn] = drawTree(data, canvas, t["children"][0], size,
+                left - size, top, right - size, centerY)
+        drawWire(canvas, childX, childY, centerX - size/4, centerY, childOn)
+        # Right child
+        [childX, childY, childOn] = drawTree(data, canvas, t["children"][1], size,
+                left - size, centerY, right - size, bottom)
+        drawWire(canvas, childX, childY, centerX - size/4, centerY, childOn)
+        return [ centerX + size/4, centerY, t["powered"] ]
+
+''' This function draws the entire circuit. It first determines the size of each
+    circuit node by measuring the width/height of the tree. Then it draws the
+    inputs and outputs. Then it recursively draws the circuit tree. '''
+def drawCircuit(data, canvas):
+    t = data["tree"]
+    if "output" not in data:
+        data["output"] = False
+    depth = 2 + getTreeDepth(t)
+    width = max(1, len(data["inputs"]), getTreeWidth(t))
+    size = 600 / max(depth, width)
+
+    drawInputs(data, canvas, size)
+
+    outLeft, outRight = 600 - size, 600
+    outTop, outBottom = 0, 600
+    outX, outY = (outLeft + outRight)/2, (outTop + outBottom)/2
+    drawNode(canvas, "Out", outX, outY, size/2, data["output"])
+
+    [childX, childY, childOn] = drawTree(data, canvas, t, size,
+        outLeft - size, outTop, outRight - size, outBottom)
+    drawWire(canvas, childX, childY, outLeft + size/4, outY, childOn)
+
+#### SIMULATION STARTER CODE ###
+
+from tkinter import *
+
+def keyEventHandler(data, canvas, event):
+    if event.keysym == "Return":
+        # Clear previous data, if it exists
+        if "inputLocations" in data:
+            del data["inputLocations"]
+    keyPressed(data, event)
+
+    canvas.delete(ALL)
+    makeView(data, canvas)
+    canvas.update()
+
+def mouseEventHandler(data, canvas, event):
+    mousePressed(data, event)
+
+    canvas.delete(ALL)
+    makeView(data, canvas)
+    canvas.update()
+
+def runSimulation(w, h):
+    data = { }
+    makeModel(data)
+
+    root = Tk()
+    canvas = Canvas(root, width=w, height=h)
+    canvas.configure(bd=0, highlightthickness=0)
+    canvas.pack()
+    makeView(data, canvas)
+
+    root.bind("<Key>", lambda event : keyEventHandler(data, canvas, event))
+    root.bind("<Button-1>", lambda event : mouseEventHandler(data, canvas, event))
+
+    root.mainloop()
+
+
+### RUN CODE ###
+
+
+# This code runs the test cases to check your work
+
+if __name__ == "__main__":
+    
+    '''
+    print("\n" + "#"*15 + " WEEK 1 TESTS " +  "#" * 16 + "\n")
+    test.week1Tests()
+    print("\n" + "#"*15 + " WEEK 1 OUTPUT " + "#" * 15 + "\n")
+    try:
+        runWeek1()
+    except:
+        print("Text could not be parsed to a tree; try again.")
+    '''
+
+    ## Uncomment these for Week 2 ##
+    '''
+    print("\n" + "#"*15 + " WEEK 2 TESTS " +  "#" * 16 + "\n")
+    test.week2Tests()
+    print("\n" + "#"*15 + " WEEK 2 OUTPUT " + "#" * 15 + "\n")
+    try:
+        runWeek2()
+    except:
+        print("Text could not be parsed to a tree; try again.")
+    '''
+
+    ## Uncomment these for Week 3 ##
+    print("\n" + "#"*5 + " NO WEEK 3 OUTPUT - SEE SIMULATION " + "#" * 5 + "\n")
+    ## Finally, run the simulation to test it manually ##
+    runSimulation(600, 650)
